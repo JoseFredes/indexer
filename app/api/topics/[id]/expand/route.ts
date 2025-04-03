@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getDb, addTopic, addPaper, addAiTool, addRelationship } from '../../../../lib/db';
-import { searchArxiv } from '../../../../lib/arxiv-service';
-import { getRelatedAITopics, getRelatedAITools } from '../../../../lib/openai-service';
-import { Topic } from '../../../../types';
+import { getDb, addTopic, addPaper, addAiTool, addRelationship } from '@/app/lib/db';
+import { searchArxiv } from '@/app/lib/arxiv-service';
+import { getRelatedAITopics, getRelatedAITools } from '@/app/lib/openai-service';
+import { Topic } from '@/app/types';
 
 // Define a type for relationships
 interface Relationship {

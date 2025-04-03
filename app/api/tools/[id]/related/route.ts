@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getDb, addTopic, addRelationship } from '../../../../lib/db';
-import { getRelatedAITopics } from '../../../../lib/openai-service';
+import { getDb, addTopic, addRelationship } from '@/app/lib/db';
+import { getRelatedAITopics } from '@/app/lib/openai-service';
+
+// Define a type for relationships
+interface Relationship {
+  id: number;
+  source_id: number;
+  source_type: string;
+  target_id: number;
+  target_type: string;
+  relationship_type: string;
+  created_at?: string;
+}
 
 export async function GET(
   request: Request,
@@ -29,8 +40,8 @@ export async function GET(
     if (existingRelationships.length > 0) {
       // If already expanded, return existing related nodes
       const relatedTopicIds = existingRelationships
-        .filter(rel => rel.target_type === 'topic')
-        .map(rel => rel.target_id);
+        .filter((rel: Relationship) => rel.target_type === 'topic')
+        .map((rel: Relationship) => rel.target_id);
       
       const topics = relatedTopicIds.length > 0
         ? await db.all('SELECT * FROM topics WHERE id IN (' + relatedTopicIds.join(',') + ')')

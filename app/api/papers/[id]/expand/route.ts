@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getDb, addTopic, addRelationship } from '../../../../lib/db';
-import { getRelatedAITopics } from '../../../../lib/openai-service';
+import { getDb, addTopic, addRelationship } from '@/app/lib/db';
+import { getRelatedAITopics } from '@/app/lib/openai-service';
 
 // Define a type for relationships
 interface Relationship {
