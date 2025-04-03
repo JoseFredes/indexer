@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '../../lib/db';
+import { getAllTools } from '@/app/lib/data';
 
 export async function GET() {
   try {
-    const db = await getDb();
-    
-    // Get all AI tools
-    const tools = await db.all('SELECT * FROM ai_tools');
+    // Get all AI tools from JSON data store
+    const tools = getAllTools();
     
     return NextResponse.json({ 
       tools

@@ -164,12 +164,8 @@ export default function InfoModal({ isOpen, onClose, node, additionalInfo }: Inf
                   {(() => {
                     console.log('Rendering additionalInfo:', additionalInfo);
                     try {
-                      // Try to handle as JSON if it's not a string
-                      if (typeof additionalInfo === 'string') {
-                        return additionalInfo;
-                      } else {
-                        return JSON.stringify(additionalInfo, null, 2);
-                      }
+                      // Simply return the string content directly
+                      return additionalInfo;
                     } catch (error) {
                       console.error('Error rendering additionalInfo:', error);
                       return 'Error displaying additional information.';

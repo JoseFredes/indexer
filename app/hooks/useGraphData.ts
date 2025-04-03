@@ -475,12 +475,17 @@ export default function useGraphData() {
       const response = await axios.get(`/api/${nodeType}s/${originalId}/info`);
       console.log('API Response:', response.data);
       
-      // Asegurarnos de que estamos extrayendo correctamente el campo info
+      // Check if we have the info field directly in the response
       if (response.data && response.data.info) {
-        console.log('Setting additionalInfo:', response.data.info);
-        setAdditionalInfo(response.data.info);
+        console.log('Setting additionalInfo from response.data.info:', response.data.info);
+        // Ensure we're handling a string here
+        setAdditionalInfo(String(response.data.info));
+      } else if (response.data) {
+        // If we don't have the "info" property, try to use the whole response
+        console.log('No info field found, using whole response data:', response.data);
+        setAdditionalInfo(typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2));
       } else {
-        console.error('Response did not contain info field:', response.data);
+        console.error('Response did not contain expected data:', response);
         setAdditionalInfo('Information not available in the expected format.');
       }
       

@@ -1,31 +1,37 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/app/lib/db';
+import { getPaperById } from '@/app/lib/data';
 
 export async function GET(
   request: Request,
   context: { params: { id: string } }
 ) {
   try {
-    // Next.js 15 requiere que usemos context.params en lugar de desestructurar params
-    const idString = context.params.id;
+    // Usar la desestructuración correctamente para Next.js 15
+    const { params } = context;
+    const { id: idString } = params;
     const id = parseInt(idString);
     
+    console.log(`API: Getting info for paper ID ${id}`);
+    
     if (isNaN(id)) {
+      console.error('Invalid paper ID:', idString);
       return NextResponse.json({ error: 'Invalid paper ID' }, { status: 400 });
     }
-
-    const db = await getDb();
     
-    // Fetch the paper with detailed information
-    const paper = await db.get('SELECT * FROM papers WHERE id = ?', id);
+    // Fetch the paper with detailed information from JSON data store
+    const paper = getPaperById(id);
+    console.log('API: Paper found:', paper);
+    
     if (!paper) {
+      console.error('Paper not found with ID:', id);
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 });
     }
 
-    // Use the detailed_info from the database
+    // Use the detailed_info from the data store
     const info = paper.detailed_info || 
-      `"${paper.title}" is a research paper authored by ${paper.authors}. The paper discusses: ${paper.summary}`;
+      `"${paper.title}" is a research paper ${paper.authors ? `authored by ${paper.authors}` : ''}. ${paper.summary || ''}`;
     
+    console.log('API: Returning info:', { info });
     return NextResponse.json({ info }, { status: 200 });
   } catch (error) {
     console.error('Error getting paper info:', error);

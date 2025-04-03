@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/app/lib/db';
+import { getToolById } from '@/app/lib/data';
 
 export async function GET(
   request: Request,
   context: { params: { id: string } }
 ) {
   try {
-    // Next.js 15 requiere que usemos context.params en lugar de desestructurar params
-    const idString = context.params.id;
+    // En Next.js 15, usamos la destructuración correctamente
+    const { params } = context;
+    const { id: idString } = params;
     const id = parseInt(idString);
     
     console.log(`API: Getting info for tool ID ${id}`);
@@ -16,11 +17,9 @@ export async function GET(
       console.error('Invalid tool ID:', idString);
       return NextResponse.json({ error: 'Invalid tool ID' }, { status: 400 });
     }
-
-    const db = await getDb();
     
-    // Fetch the tool with detailed information
-    const tool = await db.get('SELECT * FROM ai_tools WHERE id = ?', id);
+    // Fetch the tool with detailed information from JSON data store
+    const tool = getToolById(id);
     console.log('API: Tool found:', tool);
     
     if (!tool) {
@@ -28,7 +27,7 @@ export async function GET(
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
     }
 
-    // Use the detailed_info from the database
+    // Use the detailed_info from the data store
     const info = tool.detailed_info || 
       `${tool.name} is an AI tool in the category of ${tool.category}. It is described as: ${tool.description}`;
     

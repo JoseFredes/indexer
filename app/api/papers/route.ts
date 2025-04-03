@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '../../lib/db';
+import { getAllPapers } from '@/app/lib/data';
 
 export async function GET() {
   try {
-    const db = await getDb();
-    
-    // Get all research papers
-    const papers = await db.all('SELECT * FROM papers');
+    // Get all research papers from JSON data store
+    const papers = getAllPapers();
     
     return NextResponse.json({ 
       papers

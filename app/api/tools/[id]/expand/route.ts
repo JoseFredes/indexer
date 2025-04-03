@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getDb, addTopic, addRelationship } from '@/app/lib/db';
+import { 
+  getToolById, 
+  getRelatedTopics, 
+  getRelatedPapers,
+  addTopic,
+  addRelationship
+} from '@/app/lib/data';
 import { getRelatedAITopics } from '@/app/lib/openai-service';
 
 // Define a type for relationships
@@ -19,95 +25,38 @@ export async function GET(
 ) {
   try {
     // Next.js 15 requiere que usemos context.params en lugar de desestructurar params
-    const idString = context.params.id;
+    const { params } = context;
+    const { id: idString } = params;
     const id = parseInt(idString);
     
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid tool ID' }, { status: 400 });
     }
 
-    const db = await getDb();
-    
-    // Fetch the tool
-    const tool = await db.get('SELECT * FROM ai_tools WHERE id = ?', id);
+    // Fetch the tool from JSON data store
+    const tool = getToolById(id);
     if (!tool) {
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 });
     }
 
-    // Check if we've already expanded this tool
-    const existingRelationships = await db.all(
-      'SELECT * FROM relationships WHERE source_id = ? AND source_type = "tool"',
-      id
-    );
+    // Get existing related topics
+    const relatedTopics = getRelatedTopics(id, 'tool');
+    const relatedPapers = getRelatedPapers(id, 'tool');
 
-    if (existingRelationships.length > 0) {
-      // If already expanded, return existing related nodes
-      const relatedTopicIds = existingRelationships
-        .filter((rel: Relationship) => rel.target_type === 'topic')
-        .map((rel: Relationship) => rel.target_id);
-      
-      const topics = relatedTopicIds.length > 0
-        ? await db.all('SELECT * FROM topics WHERE id IN (' + relatedTopicIds.join(',') + ')')
-        : [];
+    // In a real implementation that can write to the data store,
+    // this is where we would request new relationships from the AI service
+    // For now, we'll just return the existing relationships
 
-      return NextResponse.json({
-        topics,
-        papers: [],
-        tools: [],
-        relationships: existingRelationships
-      }, { status: 200 });
-    }
-
-    // Otherwise, generate new related topics for this tool
-    // Extract information from the tool to generate better related topics
-    const prompt = `${tool.name} - ${tool.category} - ${tool.description}`;
-    
-    // Get related topics for the tool
-    const relatedTopics = await getRelatedAITopics(prompt, 1, 4);
-    
-    // Save everything to the database
-    const newTopicIds = [];
-    for (const relTopic of relatedTopics) {
-      // Generate detailed information for the topic
-      const detailed_info = `${relTopic.name} is a concept related to the AI tool ${tool.name}. ${relTopic.description}`;
-      
-      const topicId = await addTopic({
-        name: relTopic.name,
-        description: relTopic.description,
-        source: 'openai',
-        veracity_score: relTopic.veracity_score,
-        detailed_info: detailed_info
-      });
-      newTopicIds.push(topicId);
-      
-      // Add relationship
-      await addRelationship({
-        source_id: id,
-        source_type: 'tool',
-        target_id: topicId,
-        target_type: 'topic',
-        relationship_type: 'related'
-      });
-    }
-    
-    // Fetch the newly added items to return them
-    const newTopics = newTopicIds.length > 0
-      ? await db.all('SELECT * FROM topics WHERE id IN (' + newTopicIds.join(',') + ')')
-      : [];
-    
-    const newRelationships = await db.all(
-      'SELECT * FROM relationships WHERE source_id = ? AND source_type = "tool"',
-      id
-    );
-    
     return NextResponse.json({
-      topics: newTopics,
-      papers: [],
-      tools: [],
-      relationships: newRelationships
+      topics: relatedTopics,
+      papers: relatedPapers,
+      tools: [], // No tool-to-tool relationships in this simplified version
     }, { status: 200 });
+    
   } catch (error) {
     console.error('Error expanding tool:', error);
-    return NextResponse.json({ error: 'Failed to expand tool' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to expand tool' 
+    }, { status: 500 });
   }
 } 
