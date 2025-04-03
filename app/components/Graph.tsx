@@ -12,6 +12,7 @@ import ReactFlow, {
   EdgeChange,
   ConnectionLineType,
   useReactFlow,
+  BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -77,7 +78,7 @@ export default function Graph() {
             );
             
             const childTopics = response.data.topics.filter((topic: Topic) => 
-              topic.parent_id && mainTopics.some(main => main.id === topic.parent_id)
+              topic.parent_id && mainTopics.some((main: Topic) => main.id === topic.parent_id)
             );
             
             filteredTopics = [...mainTopics, ...childTopics];
@@ -407,8 +408,15 @@ export default function Graph() {
       console.log('handleNodeInfo triggered for nodeId:', nodeId);
       const node = nodes.find(n => n.id === nodeId);
       if (node) {
-        console.log('Node found:', node);
-        getNodeInfo(node);
+        console.log('Node found for info request:', node);
+        try {
+          // Call getNodeInfo and log when it completes
+          getNodeInfo(node)
+            .then(() => console.log('getNodeInfo completed successfully'))
+            .catch(err => console.error('getNodeInfo failed:', err));
+        } catch (error) {
+          console.error('Error calling getNodeInfo:', error);
+        }
       } else {
         console.error('Node not found for info:', nodeId);
       }
@@ -500,7 +508,7 @@ export default function Graph() {
             color="#aaa" 
             gap={16} 
             size={1}
-            variant="dots"
+            variant={BackgroundVariant.Dots}
           />
           <Controls />
         </ReactFlow>

@@ -229,11 +229,13 @@ export default function useGraphData() {
   
   // Handle node expansion
   const expandNode = useCallback(async (nodeId: string) => {
+    console.log('expandNode called with nodeId:', nodeId);
     try {
       setLoading(true);
       
       // Determine node type and ID
       const [nodeType, id] = nodeId.split('-');
+      console.log(`Expanding ${nodeType} with ID ${id}`);
       
       // Different API endpoints based on node type
       let endpoint = '';
@@ -245,11 +247,16 @@ export default function useGraphData() {
         endpoint = `/api/papers/${id}/expand`;
       }
       
+      console.log(`Fetching from endpoint: ${endpoint}`);
+      
       const response = await fetch(endpoint);
+      console.log('Response status:', response.status);
+      
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (!response.ok) {
-        throw new Error(data.message || 'Error expanding node');
+        throw new Error(data.error || data.message || 'Error expanding node');
       }
       
       const newNodes: Node[] = [];
@@ -257,7 +264,8 @@ export default function useGraphData() {
       const existingNodeIds = new Set(getNodes().map(n => n.id));
       
       // Process related topics
-      if (data.topics) {
+      if (data.topics && Array.isArray(data.topics)) {
+        console.log(`Processing ${data.topics.length} related topics`);
         data.topics.forEach((topic: any) => {
           const topicNodeId = `topic-${topic.id}`;
           
@@ -465,36 +473,65 @@ export default function useGraphData() {
   
   // Get additional information about a node
   const getNodeInfo = useCallback(async (node: CustomNode) => {
+    console.log('getNodeInfo called with node:', node);
     try {
+      // Store the selected node first
+      setSelectedNode(node);
+      
+      // Set loading state and open modal immediately
       setLoading(true);
+      setInfoModalOpen(true);
+      
+      // Show loading message
+      setAdditionalInfo('Loading information...');
       
       const nodeType = node.data.type;
-      const originalId = parseInt(node.id.split('-')[1]);
+      const nodeId = node.id.split('-')[1];
+      const originalId = parseInt(nodeId);
       
-      console.log(`Fetching info for ${nodeType} with ID ${originalId}`);
-      const response = await axios.get(`/api/${nodeType}s/${originalId}/info`);
-      console.log('API Response:', response.data);
-      
-      // Check if we have the info field directly in the response
-      if (response.data && response.data.info) {
-        console.log('Setting additionalInfo from response.data.info:', response.data.info);
-        // Ensure we're handling a string here
-        setAdditionalInfo(String(response.data.info));
-      } else if (response.data) {
-        // If we don't have the "info" property, try to use the whole response
-        console.log('No info field found, using whole response data:', response.data);
-        setAdditionalInfo(typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2));
-      } else {
-        console.error('Response did not contain expected data:', response);
-        setAdditionalInfo('Information not available in the expected format.');
+      if (isNaN(originalId)) {
+        console.error('Invalid node ID format:', nodeId);
+        setAdditionalInfo('Error: Invalid node ID format');
+        return false;
       }
       
-      console.log('Setting infoModalOpen to true');
-      setInfoModalOpen(true);
+      const apiUrl = `/api/${nodeType}s/${originalId}/info`;
+      console.log(`Fetching info for ${nodeType} with ID ${originalId}`);
+      console.log(`API URL: ${apiUrl}`);
+      
+      try {
+        const response = await axios.get(apiUrl);
+        console.log('API Response received:', response);
+        
+        // Check if we have the info field directly in the response
+        if (response.data && response.data.info) {
+          console.log('Setting additionalInfo from response.data.info:', response.data.info);
+          // Ensure we're handling a string here
+          setAdditionalInfo(String(response.data.info));
+        } else if (response.data) {
+          // If we don't have the "info" property, try to use the whole response
+          console.log('No info field found, using whole response data:', response.data);
+          setAdditionalInfo(typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2));
+        } else {
+          console.error('Response did not contain expected data:', response);
+          setAdditionalInfo('Information not available in the expected format.');
+        }
+        
+        return true;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          console.error('Axios error in getNodeInfo:', error.message, error.response?.data);
+          setAdditionalInfo(`API Error: ${error.message}. ${error.response?.data?.error || ''}`);
+        } else {
+          console.error('Unknown error in getNodeInfo:', error);
+          setAdditionalInfo('Error retrieving information: ' + (error instanceof Error ? error.message : String(error)));
+        }
+        return false;
+      }
     } catch (error) {
       console.error('Error getting node info:', error);
-      setAdditionalInfo('Error retrieving information.');
-      setInfoModalOpen(true);
+      setAdditionalInfo('Error retrieving information: ' + (error instanceof Error ? error.message : String(error)));
+      return false;
     } finally {
       setLoading(false);
     }

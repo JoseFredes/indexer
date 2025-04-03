@@ -6,9 +6,9 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    // En Next.js 15, usamos la destructuración correctamente
-    const { params } = context;
-    const { id: idString } = params;
+    // Correctly await params in Next.js 15
+    const params = await context.params;
+    const idString = params.id;
     const id = parseInt(idString);
     
     console.log(`API: Getting info for tool ID ${id}`);

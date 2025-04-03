@@ -79,14 +79,18 @@ function CustomNodeComponent({ data, id }: CustomNodeProps) {
             title="More Information"
             onClick={(e) => {
               e.stopPropagation();
+              console.log('Info button clicked for node:', id, data);
               // We'll implement this in the parent component
-              window.dispatchEvent(new CustomEvent('node-info', { detail: { id } }));
+              const event = new CustomEvent('node-info', { detail: { id } });
+              console.log('Dispatching node-info event:', event);
+              window.dispatchEvent(event);
+              console.log('node-info event dispatched');
             }}
           >
             <FiInfo className="w-4 h-4" />
           </button>
           
-          {data.url && (
+          {(data.type === 'paper' || data.type === 'tool') && data.url && (
             <a 
               href={data.url}
               target="_blank"

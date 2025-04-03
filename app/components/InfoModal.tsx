@@ -13,9 +13,18 @@ export default function InfoModal({ isOpen, onClose, node, additionalInfo }: Inf
   const modalRef = useRef<HTMLDivElement>(null);
   
   // Add debug log
-  console.log('InfoModal rendered with:', { isOpen, node: node?.id, additionalInfo });
+  console.log('InfoModal rendered with:', { 
+    isOpen, 
+    nodeId: node?.id, 
+    nodeType: node?.data?.type,
+    nodeLabel: node?.data?.label,
+    additionalInfoLength: additionalInfo?.length,
+    additionalInfoPreview: additionalInfo?.substring(0, 50)
+  });
   
   useEffect(() => {
+    console.log('InfoModal isOpen changed to:', isOpen);
+    
     function handleClickOutside(event: MouseEvent) {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         onClose();
@@ -31,7 +40,18 @@ export default function InfoModal({ isOpen, onClose, node, additionalInfo }: Inf
     };
   }, [isOpen, onClose]);
   
-  if (!isOpen || !node) return null;
+  // Track changes to additionalInfo
+  useEffect(() => {
+    if (isOpen && additionalInfo) {
+      console.log('InfoModal additionalInfo updated:', 
+        additionalInfo.substring(0, 50) + (additionalInfo.length > 50 ? '...' : ''));
+    }
+  }, [additionalInfo, isOpen]);
+  
+  if (!isOpen || !node) {
+    console.log('InfoModal not showing because:', { isOpen, hasNode: !!node });
+    return null;
+  }
   
   const { type, label } = node.data;
   
@@ -164,6 +184,27 @@ export default function InfoModal({ isOpen, onClose, node, additionalInfo }: Inf
                   {(() => {
                     console.log('Rendering additionalInfo:', additionalInfo);
                     try {
+                      // Check if we're in loading state
+                      if (additionalInfo === 'Loading information...') {
+                        return (
+                          <div className="flex items-center justify-center py-4">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mr-2"></div>
+                            <span>Loading information...</span>
+                          </div>
+                        );
+                      }
+                      
+                      // Check if we have an error message (starts with "Error:" or "API Error:")
+                      if (additionalInfo.startsWith('Error:') || additionalInfo.startsWith('API Error:')) {
+                        return (
+                          <div className="text-red-600 py-2">
+                            <p className="font-semibold mb-2">⚠️ An error occurred:</p>
+                            <p>{additionalInfo}</p>
+                            <p className="mt-4 text-gray-600 text-sm">Try refreshing the page or try again later.</p>
+                          </div>
+                        );
+                      }
+                      
                       // Simply return the string content directly
                       return additionalInfo;
                     } catch (error) {

@@ -24,10 +24,13 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    // Next.js 15 requiere que usemos context.params en lugar de desestructurar params
-    const { params } = context;
-    const { id: idString } = params;
+    console.log('Starting tools/[id]/expand route handler with context:', context);
+    // Correctly await params in Next.js 15
+    const params = await context.params;
+    console.log('Params received after await:', params);
+    const idString = params.id;
     const id = parseInt(idString);
+    console.log(`Processing tool ID: ${id}`);
     
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid tool ID' }, { status: 400 });
@@ -40,16 +43,55 @@ export async function GET(
     }
 
     // Get existing related topics
-    const relatedTopics = getRelatedTopics(id, 'tool');
+    let relatedTopics = getRelatedTopics(id, 'tool');
     const relatedPapers = getRelatedPapers(id, 'tool');
 
-    // In a real implementation that can write to the data store,
-    // this is where we would request new relationships from the AI service
-    // For now, we'll just return the existing relationships
+    console.log(`Found related items for tool ${id}:`, {
+      topicsCount: relatedTopics?.length || 0,
+      papersCount: relatedPapers?.length || 0
+    });
+
+    // If there are no related topics, fetch from OpenAI
+    if (!relatedTopics || relatedTopics.length === 0) {
+      console.log(`No related topics found for tool ${id}, querying OpenAI...`);
+      try {
+        // Get related topics from OpenAI
+        const newRelatedTopics = await getRelatedAITopics(tool.name);
+        console.log(`Retrieved ${newRelatedTopics.length} new topics from OpenAI`);
+        
+        // In a real implementation, we would save these to the database
+        // For now, we'll just return them without saving
+        
+        // Add the topics
+        for (const topic of newRelatedTopics) {
+          const topicId = addTopic({
+            name: topic.name,
+            description: topic.description,
+            source: 'openai',
+            veracity_score: topic.veracity_score || 0.5
+          });
+          
+          // Add the relationship
+          addRelationship({
+            source_id: id,
+            source_type: 'tool',
+            target_id: topicId,
+            target_type: 'topic',
+            relationship_type: 'related'
+          });
+        }
+        
+        // Return the new topics
+        relatedTopics = newRelatedTopics;
+      } catch (error) {
+        console.error('Error fetching topics from OpenAI:', error);
+        // Continue with empty topics
+      }
+    }
 
     return NextResponse.json({
-      topics: relatedTopics,
-      papers: relatedPapers,
+      topics: relatedTopics || [],
+      papers: relatedPapers || [],
       tools: [], // No tool-to-tool relationships in this simplified version
     }, { status: 200 });
     
