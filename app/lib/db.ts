@@ -4,16 +4,8 @@ import { open } from 'sqlite';
 // Initialize the SQLite database
 let db: any = null;
 
-export async function getDb() {
-  if (db) return db;
-  
-  // Open the database
-  db = await open({
-    filename: './ai-indexer.db',
-    driver: sqlite3.Database
-  });
-  
-  // Create tables if they don't exist
+// Función para crear las tablas si no existen
+async function createTables() {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS topics (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +52,23 @@ export async function getDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+}
+
+export async function getDb() {
+  if (!db) {
+    // En Vercel, usa el directorio /tmp que es escribible
+    const dbPath = process.env.NODE_ENV === 'production' && process.env.VERCEL 
+      ? '/tmp/ai-indexer.db' 
+      : './ai-indexer.db';
+      
+    db = await open({
+      filename: dbPath,
+      driver: sqlite3.Database
+    });
+    
+    // Asegurarnos de que las tablas existen
+    await createTables();
+  }
   
   return db;
 }
@@ -68,11 +77,12 @@ export async function getDb() {
 export async function seedDatabase() {
   const db = await getDb();
   
-  // Check if we already have seed data
+  // Verificar si ya hay datos en la base de datos
   const topicsCount = await db.get('SELECT COUNT(*) as count FROM topics');
   
+  // Solo ejecutar la carga de datos si no hay tópicos en la base de datos
   if (topicsCount.count === 0) {
-    // Seed initial topics
+    // Carga inicial de tópicos de IA
     await db.run(`
       INSERT INTO topics (name, description, source, veracity_score, detailed_info)
       VALUES 
