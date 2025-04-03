@@ -1,29 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getDb, seedDatabase } from '../../../../lib/db';
+import { getDb, seedDatabase } from '@/app/lib/db';
 
 export async function GET() {
   try {
     console.log("ADMIN API: Forzando seed de la base de datos");
     
-    const db = await getDb();
-    
-    // Status actual antes del seed
-    const beforeTopicsCount = await db.get('SELECT COUNT(*) as count FROM topics');
-    const beforeToolsCount = await db.get('SELECT COUNT(*) as count FROM ai_tools');
-    const beforePapersCount = await db.get('SELECT COUNT(*) as count FROM papers');
-    const beforeRelCount = await db.get('SELECT COUNT(*) as count FROM relationships');
-    
-    const beforeStatus = {
-      topics: beforeTopicsCount.count,
-      tools: beforeToolsCount.count,
-      papers: beforePapersCount.count,
-      relationships: beforeRelCount.count,
-    };
-    
-    console.log("ADMIN API: Estado actual de la BD:", beforeStatus);
-    
     // Forzar seed de la base de datos
     await seedDatabase(true); // Forzar el seed independientemente de si hay datos o no
+    
+    // Verificar el estado resultante
+    const db = await getDb();
     
     // Status después del seed
     const afterTopicsCount = await db.get('SELECT COUNT(*) as count FROM topics');
@@ -36,6 +22,12 @@ export async function GET() {
       tools: afterToolsCount.count,
       papers: afterPapersCount.count,
       relationships: afterRelCount.count,
+      environment: {
+        nodeEnv: process.env.NODE_ENV || 'unknown',
+        isVercel: process.env.VERCEL ? 'true' : 'false',
+        tmpDir: '/tmp', // Directorio temporal en Vercel
+        currentTime: new Date().toISOString()
+      }
     };
     
     console.log("ADMIN API: Estado después del seed:", afterStatus);
@@ -52,8 +44,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       dbInfo,
-      before: beforeStatus,
-      after: afterStatus,
+      status: afterStatus,
       samples: {
         topics,
         tools,

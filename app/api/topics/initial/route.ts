@@ -1,127 +1,105 @@
 import { NextResponse } from 'next/server';
-import { getTopics, getRelationships, seedDatabase, getDb } from '../../../lib/db';
-import { Topic } from '../../../types';
+import { getDb, seedDatabase } from '@/app/lib/db';
 
-interface Relationship {
-  id: number;
-  source_id: number;
-  source_type: string;
-  target_id: number;
-  target_type: string;
-  relationship_type: string;
-  created_at?: string;
-}
-
-export async function GET() {
-  try {
-    console.log("API: /api/topics/initial - Initializing database and fetching initial data");
-    
-    // Ensure the database is seeded
-    let seedError = null;
-    try {
-      // Intenta hacer el seed, pero no fuerza si ya existen datos
-      await seedDatabase(false);
-    } catch (error) {
-      seedError = error;
-      console.error("Error seeding database:", error);
-      // Continuamos de todos modos, para intentar devolver datos si los hay
-    }
-    
-    // Fetch initial topics and relationships including advanced topics
-    const db = await getDb();
-    
-    console.log("API: Fetching topics, tools, papers and relationships");
-    
-    // Verificar si tenemos algún dato
-    const hasData = await checkForData(db);
-    
-    if (!hasData) {
-      console.log("No data found after normal seed, attempting force seed...");
-      try {
-        // Si no hay datos, intentamos forzar el seed
-        await seedDatabase(true);
-      } catch (forceError) {
-        console.error("Error during forced seed:", forceError);
-        // Continuamos aún con el error
-      }
-    }
-    
-    // Get topics from both initial_seed and advanced_seed sources
-    const topics = await db.all(`
-      SELECT DISTINCT * FROM topics 
-      WHERE source IN ('initial_seed', 'advanced_seed')
-    `);
-    
-    console.log(`API: Found ${topics.length} topics`);
-    
-    // Crear un mapa para garantizar no hay duplicados por ID
-    const uniqueTopics = new Map<number, Topic>();
-    topics.forEach((topic: Topic) => {
-      // Solo guardar el tema si aún no existe en el mapa de temas únicos
-      if (!uniqueTopics.has(topic.id)) {
-        uniqueTopics.set(topic.id, topic);
-      }
-    });
-    
-    // Obtener herramientas de IA (limitamos a 15 para no sobrecargar la interfaz)
-    const tools = await db.all(`
-      SELECT * FROM ai_tools
-      LIMIT 15
-    `);
-    
-    console.log(`API: Found ${tools.length} tools`);
-    
-    // Obtener papers (limitamos a 15 para no sobrecargar la interfaz)
-    const papers = await db.all(`
-      SELECT * FROM papers
-      LIMIT 15
-    `);
-    
-    console.log(`API: Found ${papers.length} papers`);
-    
-    // Get all relationships between all entities (topics, tools, papers)
-    const relationships = await db.all(`
-      SELECT DISTINCT r.* FROM relationships r
-      WHERE (r.source_type = 'topic' AND r.target_type = 'topic')
-         OR (r.source_type = 'tool' OR r.target_type = 'tool')
-         OR (r.source_type = 'paper' OR r.target_type = 'paper')
-      LIMIT 300
-    `);
-    
-    console.log(`API: Found ${relationships.length} relationships`);
-    
-    // Crear un mapa para garantizar no hay relaciones duplicadas
-    const uniqueRelationships = new Map<string, Relationship>();
-    relationships.forEach((rel: Relationship) => {
-      const key = `${rel.source_id}-${rel.source_type}-${rel.target_id}-${rel.target_type}`;
-      // Solo guardar la relación si aún no existe una igual
-      if (!uniqueRelationships.has(key)) {
-        uniqueRelationships.set(key, rel);
-      }
-    });
-    
-    console.log("API: Returning data to client");
-    
-    return NextResponse.json({ 
-      topics: Array.from(uniqueTopics.values()), 
-      tools: tools,
-      papers: papers,
-      relationships: Array.from(uniqueRelationships.values())
-    }, { status: 200 });
-  } catch (error) {
-    console.error('Error fetching initial topics:', error);
-    return NextResponse.json({ 
-      error: 'Failed to fetch initial topics',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
-  }
-}
-
-// Función auxiliar para verificar si hay datos en la BD
+// Helper para verificar si hay datos en la base de datos
 async function checkForData(db: any) {
   const topicsCount = await db.get('SELECT COUNT(*) as count FROM topics');
   const toolsCount = await db.get('SELECT COUNT(*) as count FROM ai_tools');
   const papersCount = await db.get('SELECT COUNT(*) as count FROM papers');
   
-  return topicsCount.count > 0 || toolsCount.count > 0 || papersCount.count > 0;
+  console.log(`DB Check: Topics=${topicsCount.count}, Tools=${toolsCount.count}, Papers=${papersCount.count}`);
+  
+  return {
+    hasData: topicsCount.count > 0 && toolsCount.count > 0 && papersCount.count > 0,
+    counts: {
+      topics: topicsCount.count,
+      tools: toolsCount.count,
+      papers: papersCount.count
+    }
+  };
+}
+
+export async function GET() {
+  console.log("API: Fetching initial topics");
+  let seedError = null;
+
+  try {
+    // Intentar inicializar la base de datos sin forzar
+    try {
+      console.log("API: Intentando seed inicial (no forzado)");
+      await seedDatabase(false);
+    } catch (error) {
+      console.warn("API: Error en seed inicial (no forzado):", error);
+      seedError = error;
+    }
+
+    const db = await getDb();
+    
+    // Verificar si hay datos
+    const dataCheck = await checkForData(db);
+    
+    // Si no hay datos después del intento inicial, intentar forzar el seed
+    if (!dataCheck.hasData) {
+      console.log("API: No se encontraron datos, intentando seed forzado");
+      try {
+        await seedDatabase(true);
+        console.log("API: Seed forzado completado");
+      } catch (error) {
+        console.error("API: Error en seed forzado:", error);
+        seedError = error;
+      }
+    }
+
+    // Obtener topics de ambas fuentes
+    console.log("API: Fetching topics from database");
+    const topicsInitial = await db.all('SELECT * FROM topics WHERE source = "initial_seed"');
+    const topicsAdvanced = await db.all('SELECT * FROM topics WHERE source = "advanced_seed"');
+    
+    console.log(`API: Found ${topicsInitial.length} initial topics and ${topicsAdvanced.length} advanced topics`);
+
+    // Fetch tools
+    const tools = await db.all('SELECT * FROM ai_tools');
+    console.log(`API: Found ${tools.length} tools`);
+
+    // Fetch papers
+    const papers = await db.all('SELECT * FROM papers');
+    console.log(`API: Found ${papers.length} papers`);
+
+    // Fetch topic relationships (para cualquier tipo de relación)
+    const relationships = await db.all(`
+      SELECT r.id, r.source_id, r.source_type, r.target_id, r.target_type, r.strength
+      FROM relationships r
+      WHERE r.source_type = 'topic' OR r.target_type = 'topic'
+    `);
+    console.log(`API: Found ${relationships.length} relationships`);
+
+    // Eliminar duplicados si los hubiera (no debería haber, pero por seguridad)
+    const uniqueTopics = [...new Map([...topicsInitial, ...topicsAdvanced].map(item => [item.id, item])).values()];
+
+    // Retornar los datos
+    return NextResponse.json({
+      topics: uniqueTopics,
+      tools,
+      papers,
+      relationships,
+      meta: {
+        seed: {
+          attempted: true,
+          error: seedError ? String(seedError) : null,
+          dataCounts: dataCheck.counts
+        },
+        environment: {
+          nodeEnv: process.env.NODE_ENV || 'unknown',
+          isVercel: process.env.VERCEL ? 'true' : 'false'
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching initial topics:', error);
+    return NextResponse.json({ 
+      error: 'Error fetching initial topics',
+      details: error instanceof Error ? error.message : String(error),
+      seedError: seedError ? String(seedError) : null
+    }, { status: 500 });
+  }
 } 

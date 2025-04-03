@@ -4,12 +4,21 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "functions": {
+    "app/api/topics/initial/**": {
+      "memory": 1536,
+      "maxDuration": 30
+    },
+    "app/api/admin/seed/**": {
+      "memory": 1536,
+      "maxDuration": 30
+    },
     "app/api/**/*": {
       "memory": 1024,
-      "maxDuration": 10
+      "maxDuration": 15
     }
   },
   "env": {
-    "VERCEL": "true"
+    "VERCEL": "true",
+    "NODE_ENV": "production"
   }
 } 
