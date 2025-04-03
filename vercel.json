@@ -5,11 +5,11 @@
   "framework": "nextjs",
   "functions": {
     "app/api/topics/initial/**": {
-      "memory": 1536,
+      "memory": 1024,
       "maxDuration": 30
     },
     "app/api/admin/seed/**": {
-      "memory": 1536,
+      "memory": 1024,
       "maxDuration": 30
     },
     "app/api/**/*": {
