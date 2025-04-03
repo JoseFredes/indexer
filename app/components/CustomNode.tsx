@@ -48,6 +48,12 @@ function CustomNodeComponent({ data, id }: CustomNodeProps) {
   const nodeColorClass = NODE_COLORS[type as keyof typeof NODE_COLORS] || 'bg-gray-50 border-gray-400';
   const nodeIcon = NODE_ICONS[type as keyof typeof NODE_ICONS] || '❓';
   
+  // Función para detener la propagación de eventos al contenedor del nodo
+  const handleButtonClick = (e: React.MouseEvent, callback: () => void) => {
+    e.stopPropagation();
+    callback();
+  };
+  
   return (
     <>
       <Handle
@@ -61,6 +67,8 @@ function CustomNodeComponent({ data, id }: CustomNodeProps) {
           nodeColorClass,
           'hover:shadow-lg hover:scale-105'
         )}
+        // Añadimos un data-draggable para mejor visualización
+        data-draggable="true"
       >
         {hasVeracityScore && <VeracityBadge score={data.veracity_score} />}
         

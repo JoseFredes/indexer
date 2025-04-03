@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '../../lib/db';
+import { searchInData } from '../../lib/data';
 import { SearchResult } from '../../types';
 
 export async function GET(request: Request) {
@@ -14,42 +14,19 @@ export async function GET(request: Request) {
       }, { status: 200 });
     }
     
-    const db = await getDb();
-    const searchTerm = `%${query}%`;
+    console.log('Search API: Searching for:', query);
     
-    // Search in topics
-    const topics = await db.all(
-      `SELECT id, 'topic' as type, name as title, description, veracity_score
-       FROM topics
-       WHERE name LIKE ? OR description LIKE ?
-       LIMIT 10`,
-      [searchTerm, searchTerm]
-    );
+    // Usar la función de búsqueda en memoria en lugar de la base de datos
+    const { topics, papers, tools } = searchInData(query);
     
-    // Search in papers
-    const papers = await db.all(
-      `SELECT id, 'paper' as type, title, summary as description
-       FROM papers
-       WHERE title LIKE ? OR summary LIKE ? OR authors LIKE ?
-       LIMIT 10`,
-      [searchTerm, searchTerm, searchTerm]
-    );
-    
-    // Search in tools
-    const tools = await db.all(
-      `SELECT id, 'tool' as type, name as title, description, veracity_score
-       FROM ai_tools
-       WHERE name LIKE ? OR description LIKE ? OR category LIKE ?
-       LIMIT 10`,
-      [searchTerm, searchTerm, searchTerm]
-    );
+    console.log(`Search API: Found ${topics.length} topics, ${papers.length} papers, ${tools.length} tools`);
     
     // Combine and transform results
     const results: SearchResult[] = [
       ...topics.map((t: any) => ({
         id: `topic-${t.id}`,
         type: 'topic' as const,
-        title: t.title,
+        title: t.name,
         description: t.description || '',
         veracity_score: t.veracity_score
       })),
@@ -57,12 +34,12 @@ export async function GET(request: Request) {
         id: `paper-${p.id}`,
         type: 'paper' as const,
         title: p.title,
-        description: p.description || ''
+        description: p.summary || '',
       })),
       ...tools.map((t: any) => ({
         id: `tool-${t.id}`,
         type: 'tool' as const,
-        title: t.title,
+        title: t.name,
         description: t.description || '',
         veracity_score: t.veracity_score
       }))

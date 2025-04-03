@@ -78,17 +78,27 @@ function getTopicColor(topic: any): string {
 function getNodePosition(parentNode: Node | null, nodeIndex: number, totalNodes: number): XYPosition {
   // Position calculations based on parent node
   if (parentNode) {
-    const radius = 300;
-    const angle = (2 * Math.PI / totalNodes) * nodeIndex;
+    // Aumentar el radio para dar más espacio entre nodos
+    const radius = 350;
+    // Agregar una variación aleatoria para evitar superposiciones
+    const randomRadius = radius + (Math.random() * 100 - 50);
+    // Distribuir los nodos en un círculo si hay varios, o simplemente añadir un ángulo aleatorio
+    const angle = totalNodes > 1 
+      ? (2 * Math.PI / totalNodes) * nodeIndex
+      : Math.random() * 2 * Math.PI;
+    
+    // Añadir desplazamiento aleatorio para evitar que los nodos se superpongan
+    const offsetX = Math.random() * 50 - 25;
+    const offsetY = Math.random() * 50 - 25;
     
     return {
-      x: parentNode.position.x + radius * Math.cos(angle),
-      y: parentNode.position.y + radius * Math.sin(angle)
+      x: parentNode.position.x + randomRadius * Math.cos(angle) + offsetX,
+      y: parentNode.position.y + randomRadius * Math.sin(angle) + offsetY
     };
   }
   
-  // Default position for root nodes
-  return { x: 400, y: 300 };
+  // Default position for root nodes con más espacio entre ellos
+  return { x: 500 + Math.random() * 200 - 100, y: 400 + Math.random() * 200 - 100 };
 }
 
 export default function useGraphData() {
@@ -266,30 +276,27 @@ export default function useGraphData() {
       // Process related topics
       if (data.topics && Array.isArray(data.topics)) {
         console.log(`Processing ${data.topics.length} related topics`);
-        data.topics.forEach((topic: any) => {
+        data.topics.forEach((topic: any, index: number) => {
           const topicNodeId = `topic-${topic.id}`;
           
           // Only add if not already in graph
           if (!existingNodeIds.has(topicNodeId)) {
             // Create topic node
-            const position = getNodePosition(getNodes().find(n => n.id === nodeId), 0, 0);
+            const position = getNodePosition(getNodes().find(n => n.id === nodeId), index, data.topics.length);
             
             newNodes.push({
               id: topicNodeId,
+              type: 'customNode',  // Asegurar que use el tipo correcto
               data: { 
                 label: topic.name,
                 type: 'topic',
                 description: topic.description,
-                ...topic
+                veracity_score: topic.veracity_score || 0.5,
+                originalData: topic
               },
               position,
-              style: {
-                background: getTopicColor(topic),
-                border: '1px solid #ddd',
-                color: '#333',
-                width: 150,
-              },
               draggable: true,
+              selectable: true,
             });
           }
           
@@ -316,25 +323,22 @@ export default function useGraphData() {
           // Only add if not already in graph
           if (!existingNodeIds.has(paperNodeId)) {
             // Create paper node
-            const position = getNodePosition(getNodes().find(n => n.id === nodeId), 0, 0);
+            const position = getNodePosition(getNodes().find(n => n.id === nodeId), index, papers.length);
             
             newNodes.push({
               id: paperNodeId,
+              type: 'customNode',  // Asegurar que use el tipo correcto
               data: { 
                 label: paper.title,
                 type: 'paper',
-                description: paper.abstract,
+                description: paper.abstract || paper.summary,
+                authors: paper.authors,
                 url: paper.url,
-                ...paper
+                originalData: paper
               },
               position,
-              style: {
-                background: '#f5f5f5',
-                border: '1px solid #ddd',
-                color: '#333',
-                width: 180,
-              },
               draggable: true,
+              selectable: true,
             });
             
             // Connect to the expanded node
@@ -350,26 +354,28 @@ export default function useGraphData() {
           }
           
           // Connect paper to its related topics that already exist in the graph
-          paper.topics.forEach((topicId: number, topicIndex: number) => {
-            const topicNodeId = `topic-${topicId}`;
-            const existingNode = getNodes().find(n => n.id === topicNodeId);
-            
-            if (existingNode) {
-              // Use timestamp to ensure unique edge IDs
-              const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000) + index + topicIndex;
-              const edgeId = `edge-paper-${paper.id}-topic-${topicId}-${uniqueTimestamp}`;
+          if (paper.topics && Array.isArray(paper.topics)) {
+            paper.topics.forEach((topicId: number, topicIndex: number) => {
+              const topicNodeId = `topic-${topicId}`;
+              const existingNode = getNodes().find(n => n.id === topicNodeId);
               
-              // Only add if edge doesn't already exist
-              if (!getEdges().find(e => e.id === edgeId)) {
-                newEdges.push({
-                  id: edgeId,
-                  source: paperNodeId,
-                  target: topicNodeId,
-                  style: { strokeDasharray: '5,5' },
-                });
+              if (existingNode) {
+                // Use timestamp to ensure unique edge IDs
+                const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000) + index + topicIndex;
+                const edgeId = `edge-paper-${paper.id}-topic-${topicId}-${uniqueTimestamp}`;
+                
+                // Only add if edge doesn't already exist
+                if (!getEdges().find(e => e.id === edgeId)) {
+                  newEdges.push({
+                    id: edgeId,
+                    source: paperNodeId,
+                    target: topicNodeId,
+                    style: { strokeDasharray: '5,5' },
+                  });
+                }
               }
-            }
-          });
+            });
+          }
         });
       }
       
@@ -382,25 +388,23 @@ export default function useGraphData() {
           // Only add if not already in graph
           if (!existingNodeIds.has(toolNodeId)) {
             // Create tool node
-            const position = getNodePosition(getNodes().find(n => n.id === nodeId), 0, 0);
+            const position = getNodePosition(getNodes().find(n => n.id === nodeId), index, tools.length);
             
             newNodes.push({
               id: toolNodeId,
+              type: 'customNode',  // Asegurar que use el tipo correcto
               data: { 
                 label: tool.name,
                 type: 'tool',
                 description: tool.description,
+                category: tool.category,
                 url: tool.url,
-                ...tool
+                veracity_score: tool.veracity_score || 0.5,
+                originalData: tool
               },
               position,
-              style: {
-                background: '#e6f7ff',
-                border: '1px solid #91d5ff',
-                color: '#0050b3',
-                width: 150,
-              },
               draggable: true,
+              selectable: true,
             });
             
             // Connect to the expanded node
@@ -416,26 +420,28 @@ export default function useGraphData() {
           }
           
           // Connect tool to its related topics that already exist in the graph
-          tool.topics.forEach((topicId: number, topicIndex: number) => {
-            const topicNodeId = `topic-${topicId}`;
-            const existingNode = getNodes().find(n => n.id === topicNodeId);
-            
-            if (existingNode) {
-              // Use timestamp to ensure unique edge IDs
-              const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000) + index + topicIndex;
-              const edgeId = `edge-tool-${tool.id}-topic-${topicId}-${uniqueTimestamp}`;
+          if (tool.topics && Array.isArray(tool.topics)) {
+            tool.topics.forEach((topicId: number, topicIndex: number) => {
+              const topicNodeId = `topic-${topicId}`;
+              const existingNode = getNodes().find(n => n.id === topicNodeId);
               
-              // Only add if edge doesn't already exist
-              if (!getEdges().find(e => e.id === edgeId)) {
-                newEdges.push({
-                  id: edgeId,
-                  source: toolNodeId,
-                  target: topicNodeId,
-                  style: { strokeDasharray: '3,3' },
-                });
+              if (existingNode) {
+                // Use timestamp to ensure unique edge IDs
+                const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000) + index + topicIndex;
+                const edgeId = `edge-tool-${tool.id}-topic-${topicId}-${uniqueTimestamp}`;
+                
+                // Only add if edge doesn't already exist
+                if (!getEdges().find(e => e.id === edgeId)) {
+                  newEdges.push({
+                    id: edgeId,
+                    source: toolNodeId,
+                    target: topicNodeId,
+                    style: { strokeDasharray: '3,3' },
+                  });
+                }
               }
-            }
-          });
+            });
+          }
         });
       }
       

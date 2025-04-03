@@ -37,10 +37,15 @@ export default function Graph() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Añadimos una referencia a ReactFlow para poder usarla luego
+  const reactFlowInstance = useReactFlow();
 
   // Handle node drag and other node changes
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    (changes: NodeChange[]) => {
+      console.log('Node changes:', changes);
+      setNodes((nds) => applyNodeChanges(changes, nds));
+    },
     [setNodes]
   );
 
@@ -49,6 +54,26 @@ export default function Graph() {
     (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
     [setEdges]
   );
+
+  // Manejador específico para guardar posiciones después del arrastre
+  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    console.log('Node drag stopped:', node.id, 'at position:', node.position);
+    
+    // Actualiza todos los nodos, reemplazando la posición del nodo arrastrado
+    setNodes((nds) => 
+      nds.map((n) => {
+        if (n.id === node.id) {
+          // Aseguramos que la posición se actualiza correctamente
+          return {
+            ...n,
+            position: node.position,
+            draggable: true // Reforzamos que sea arrastrable
+          };
+        }
+        return n;
+      })
+    );
+  }, [setNodes]);
 
   // Fetch data directly in this component for debugging
   useEffect(() => {
@@ -497,20 +522,26 @@ export default function Graph() {
           fitView
           minZoom={0.2}
           maxZoom={1.5}
+          nodesDraggable={true}
+          elementsSelectable={true}
+          selectNodesOnDrag={false}
+          panOnScroll={true}
+          panOnDrag={[1, 2]}
+          onNodeDragStart={(event, node) => {
+            console.log('Node drag started:', node.id);
+          }}
+          onNodeDrag={(event, node) => {
+            // Actualiza la posición durante el arrastre para feedback visual inmediato
+            setNodes((nds) => 
+              nds.map((n) => (n.id === node.id ? { ...n, position: node.position } : n))
+            );
+          }}
+          onNodeDragStop={onNodeDragStop}
+          zoomOnDoubleClick={false}
           proOptions={{ hideAttribution: true }}
-          panOnScroll={true}   // Enable panning on scroll
-          selectionOnDrag={true} // Enable selecting nodes on drag
-          zoomOnPinch={true}   // Enable zooming with pinch
-          zoomOnScroll={true}  // Enable zooming with scroll
-          zoomOnDoubleClick={true} // Enable zooming on double click
         >
-          <Background 
-            color="#aaa" 
-            gap={16} 
-            size={1}
-            variant={BackgroundVariant.Dots}
-          />
-          <Controls />
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e0e0e0" />
+          <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
       </div>
 

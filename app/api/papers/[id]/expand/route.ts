@@ -3,8 +3,15 @@ import {
   getPaperById, 
   getRelatedTopics, 
   getRelatedTools,
-  getRelatedPapers
+  getRelatedPapers,
+  addTopic,
+  addAiTool,
+  addRelationship
 } from '@/app/lib/data';
+import { 
+  getRelatedAITopics, 
+  getRelatedAITools 
+} from '@/app/lib/openai-service';
 
 // Define a type for relationships
 interface Relationship {

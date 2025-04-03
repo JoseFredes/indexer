@@ -733,4 +733,31 @@ export function getDataCounts() {
     papers: data.papers.length,
     relationships: data.relationships.length
   };
+}
+
+// Función de búsqueda para el almacén de datos en memoria
+export function searchInData(query: string): { topics: any[], papers: any[], tools: any[] } {
+  const normalizedQuery = query.toLowerCase();
+  
+  // Buscar en tópicos
+  const topics = data.topics.filter(topic => 
+    topic.name.toLowerCase().includes(normalizedQuery) || 
+    (topic.description && topic.description.toLowerCase().includes(normalizedQuery))
+  );
+  
+  // Buscar en papers
+  const papers = data.papers.filter(paper => 
+    paper.title.toLowerCase().includes(normalizedQuery) || 
+    (paper.summary && paper.summary.toLowerCase().includes(normalizedQuery)) ||
+    (paper.authors && paper.authors.toLowerCase().includes(normalizedQuery))
+  );
+  
+  // Buscar en herramientas
+  const tools = data.tools.filter(tool => 
+    tool.name.toLowerCase().includes(normalizedQuery) || 
+    (tool.description && tool.description.toLowerCase().includes(normalizedQuery)) ||
+    (tool.category && tool.category.toLowerCase().includes(normalizedQuery))
+  );
+  
+  return { topics, papers, tools };
 } 
